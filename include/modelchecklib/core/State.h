@@ -12,7 +12,7 @@ namespace modelchecklib {
         uint8_t _pad[3];
 
         constexpr StateNode() noexcept
-            : label(APSET_EMPTY), id(INVALID_STATE), flags(FLAG_NONE), _pad{} {}
+            : label(APSET_EMPTY), id(INVALID_STATE), flags(FLAG_NONE), _pad{0} {}
 
         constexpr StateNode(StateId i, APSet lbl, uint8_t f = FLAG_NONE) noexcept
             : label(lbl), id(i), flags(f), _pad{} {}
