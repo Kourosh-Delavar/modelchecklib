@@ -1,82 +1,201 @@
-#pragma one
+#pragma once
 
+#include <bitset>
 #include <cstdint>
 #include <cstddef>
 #include <limits>
 #include <type_traits>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <algorithm>
 
 namespace modelchecklib {
 
-    using StateId = std::uint32_t;
-    using TransId = std::uint32_t;
-    using APId = std::uint8_t;
-    using ActionId = std::uint16_t;
-
-    inline constexpr StateId INVALID_STATE = std::numeric_limits<StateId>::max();
-    inline constexpr TransId INVALID_TRANS = std::numeric_limits<TransId>::max();
-    inline constexpr APId INVALID_AP = std::numeric_limits<APId>::max();
-    inline constexpr ActionId INVALID_ACTION = std::numeric_limits<ActionId>::max();
-    inline constexpr std::size_t MAX_AP = 64;
-
-    // APSet 
-    using APSet = std::uint64_t;
-
-    inline constexpr APSet APSET_EMPTY = 0ULL;
-    inline constexpr APSet APSET_FULL = ~0ULL;
-
-    [[nodiscard]] constexpr APSet apBitMask(APId id) noexcept {
-        return 1ULL << id;
-    }
-
-    [[nodiscard]] constexpr APSet apSetAdd(APSet s, APId id) noexcept {
-        return s | apBitMask(id);
-    }
-
-    [[nodiscard]] constexpr APSet apSetRemove(APSet s, APId id) noexcept {
-        return s & ~apBitMask(id);
-    }
-
-    [[nodiscard]] constexpr bool apSetContains(APSet s, APId id) noexcept {
-        return (s >> id) & 1ULL;
-    }
-
-    [[nodiscard]] constexpr APSet apSetUnion(APSet a, APId b) noexcept {
-        return a | b;
-    }
-
-    [[nodiscard]] constexpr APSet apSetIntersect(APSet a, APId b) noexcept {
-        return a & b;
-    }
-
-    [[nodiscard]] constexpr APSet apSetDiff(APSet a, APId b) noexcept {
-        return a & ~b;
-    }
-
-    [[nodiscard]] constexpr int apSetCount(APSet s) noexcept {
-        int n = 0;
-        while (s) { s &= s-1; ++n;}
-        return n;
-    }
-
-    // StateFlags 
-    enum StateFlags : uint8_t {
-        FLAG_NONE = 0x00,
-        FLAG_INITIAL = 0x01,
-        FLAG_ACCEPTING = 0x02,
-        FLAG_DEAD = 0x04,
-        FLAG_VISITED = 0x08,
-        FLAG_ON_STACK = 0x10,
-        FLAG_SEED = 0x20,   
+    enum class APStoragePolicy {
+        Bitset,
+        StringList
     };
 
-    enum AcceptanceKind : uint8_t {
-        //     
+    template<
+        std::size_t NumAP_ = 64,
+        APStoragePolicy StoragePolicy_ = APStoragePolicy::Bitset,
+        typename StateIdT = std::uint32_t,
+        typename TransIdT = std::uint32_t,
+        typename APIdT = std::uint16_t,
+        typename ActionIdT = std::uint16_t
+    >    
+    struct Model {
+        static constexpr std::size_t NumAP = NumAP_;
+        static constexpr APStoragePolicy StoragePolicy = StoragePolicy_;
+        
+        using StateId = StateIdT;
+        using TransId = TransIdT;
+        using ActionId = ActionIdT;
+        using APId = std::conditional_t<
+            StoragePolicy == APStoragePolicy::StringList, std::string, APIdT
+        >;
+
+        static constexpr StateId INVALID_STATE = std::numeric_limits<StateId>::max();
+        static constexpr TransId INVALID_TRANS = std::numeric_limits<TransId>::max();
+        static constexpr ActionId INVALID_ACTION = std::numeric_limits<ActionId>::max();    
+
+        inline static const APId INVALID_AP = []() {
+            if constexpr (std::is_same_v<APId, std::string>) {
+                return std::string("");
+            } else {
+                return std::numeric_limits<APId>::max();
+            }
+        } (); 
     };
 
-    // Type-size assertions
-    static_assert(sizeof(StateId) == 4, "StateId must be 4 bytes");
-    static_assert(sizeof(TransId) == 4, "TransId must be 4 bytes");
-    static_assert(sizeof(APId) == 1, "APId must be 1 bytes");
-    static_assert(sizeof(APSet) == 8, "APSet must be 8 bytes");
-    static_assert(sizeof(ActionId) == 2, "ActionId must be 2 bytes");
+    template<typename Model>
+    class APBitsetImpl {
+        private:
+            std::bitset<Model::NumAP> mask;
+
+        public:
+            using APId = typename Model::APId;
+
+            constexpr APBitsetImpl() noexcept = default;
+
+            [[nodiscard]] static APBitsetImpl full() noexcept {
+                APBitsetImpl s;
+                s.mask.set();
+                return s;
+            }
+ 
+            void add(APId id) { mask.set(id); }
+            void remove(APId id) { mask.reset(id); }
+            void clear() noexcept {mask.reset(); }
+
+            [[nodiscard]] bool contains(APId id) const { return mask.test(id); }
+            [[nodiscard]] std::size_t count() const { return mask.count(); }
+            [[nodiscard]] bool isEmpty() const noexcept { return mask.none(); }
+
+            // operators
+            [[nodiscard]] bool operator==(const APBitsetImpl& other) const noexcept {
+                return mask == other.mask;
+            }
+            [[nodiscard]] bool operator!=(const APBitsetImpl& other) const noexcept {
+                return mask != other.mask;
+            }
+            APBitsetImpl& operator|=(const APBitsetImpl& other) noexcept {
+                mask |= other.mask;
+                return *this;
+            }
+            APBitsetImpl& operator&=(const APBitsetImpl& other) noexcept {
+                mask &= other.mask;
+                return *this;
+            }
+    };
+
+    template<typename Model>
+    class APStringListImpl {
+        private:
+            std::vector<std::string> active_aps; 
+
+        public:
+            using APId = std::string;
+
+            constexpr APStringListImpl() noexcept = default;
+ 
+            void add(const APId& id) {
+                auto it = std::lower_bound(active_aps.begin(), active_aps.end(), id);
+                if (it == active_aps.end() || *it != id) {
+                    active_aps.insert(it, id);
+                }
+            }
+
+            void remove(const APId& id) {
+                auto it = std::lower_bound(active_aps.begin(), active_aps.end(), id);
+                if (it != active_aps.end() && *it == id) {
+                    active_aps.erase(it);
+                }
+            }
+            
+            void clear() noexcept { active_aps.clear(); }
+
+            [[nodiscard]] bool contains(const APId& id) const {
+                return std::binary_search(active_aps.begin(), active_aps.end(), id);
+            }
+
+            [[nodiscard]] std::size_t count() const noexcept { return active_aps.size(); }
+            [[nodiscard]] bool isEmpty() const noexcept { return active_aps.empty(); }
+
+            // operators
+            [[nodiscard]] bool operator==(const APStringListImpl& other) const noexcept {
+                return active_aps == other.active_aps;
+            }
+            
+            [[nodiscard]] bool operator!=(const APStringListImpl& other) const noexcept {
+                return active_aps != other.active_aps;
+            }
+            
+            APStringListImpl& operator|=(const APStringListImpl& other) noexcept {
+                std::vector<std::string> res;
+                std::set_union(
+                    active_aps.begin(), active_aps.end(),
+                    other.active_aps.begin(), other.active_aps.end(),
+                    std::back_inserter(res)
+                );
+                active_aps = std::move(res);
+                return *this;
+            }
+
+            APStringListImpl& operator&=(const APStringListImpl& other) noexcept {
+                std::vector<std::string> res;
+                std::set_intersection(
+                    active_aps.begin(), active_aps.end(),
+                    other.active_aps.begin(), other.active_aps.end(),
+                    std::back_inserter(res)
+                );
+                active_aps = std::move(res);
+                return *this;
+            }
+    };
+
+    template<typename Model>
+    using APSet = std::conditional_t<
+        Model::StoragePolicy == APStoragePolicy::Bitset,
+        APBitsetImpl<Model>,
+        APStringListImpl<Model>
+    >;
+
+    enum class StateFlags : std::uint8_t {
+        NONE       = 0x00,
+
+        INITIAL    = 0x01,
+        ACCEPTING  = 0x02,
+        DEAD       = 0x04,
+        
+        VISITED    = 0x08,
+        ON_STACK   = 0x10,
+        SEED       = 0x20,   
+    };
+
+    // StateFlags operators 
+    [[nodiscard]] constexpr StateFlags operator|(StateFlags a, StateFlags b) noexcept {
+        return static_cast<StateFlags>(static_cast<std::uint8_t>(a) | static_cast<std::uint8_t>(b));
+    }
+    [[nodiscard]] constexpr StateFlags operator&(StateFlags a, StateFlags b) noexcept {
+        return static_cast<StateFlags>(static_cast<std::uint8_t>(a) & static_cast<std::uint8_t>(b));
+    }
+    [[nodiscard]] constexpr StateFlags operator~(StateFlags a) noexcept {
+        return static_cast<StateFlags>(~static_cast<std::uint8_t>(a));
+    }
+    constexpr StateFlags& operator|=(StateFlags& a, StateFlags b) noexcept { a = a | b; return a; }
+    constexpr StateFlags& operator&=(StateFlags& a, StateFlags b) noexcept { a = a & b; return a; }
+
+    [[nodiscard]] constexpr bool hasFlag(StateFlags current, StateFlags target) noexcept {
+        return (current & target) == target;
+    }
+
+    enum class AcceptanceCondition : std::uint8_t {
+        NONE = 0x00,
+        BUCHI = 0x01,
+        GENERALIZED_BUCHI = 0x02,
+
+        // more conditions
+    };
 }
