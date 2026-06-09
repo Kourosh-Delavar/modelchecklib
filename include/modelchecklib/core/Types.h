@@ -73,7 +73,7 @@ namespace modelchecklib {
             [[nodiscard]] std::size_t count() const { return mask.count(); }
             [[nodiscard]] bool isEmpty() const noexcept { return mask.none(); }
 
-            // operators
+            // APBitsetImpl operators
             [[nodiscard]] bool operator==(const APBitsetImpl& other) const noexcept {
                 return mask == other.mask;
             }
@@ -123,15 +123,13 @@ namespace modelchecklib {
             [[nodiscard]] std::size_t count() const noexcept { return active_aps.size(); }
             [[nodiscard]] bool isEmpty() const noexcept { return active_aps.empty(); }
 
-            // operators
+            // APStringListImpl operators
             [[nodiscard]] bool operator==(const APStringListImpl& other) const noexcept {
                 return active_aps == other.active_aps;
             }
-            
             [[nodiscard]] bool operator!=(const APStringListImpl& other) const noexcept {
                 return active_aps != other.active_aps;
             }
-            
             APStringListImpl& operator|=(const APStringListImpl& other) noexcept {
                 std::vector<std::string> res;
                 std::set_union(
@@ -142,7 +140,6 @@ namespace modelchecklib {
                 active_aps = std::move(res);
                 return *this;
             }
-
             APStringListImpl& operator&=(const APStringListImpl& other) noexcept {
                 std::vector<std::string> res;
                 std::set_intersection(
@@ -164,11 +161,9 @@ namespace modelchecklib {
 
     enum class StateFlags : std::uint8_t {
         NONE       = 0x00,
-
         INITIAL    = 0x01,
         ACCEPTING  = 0x02,
         DEAD       = 0x04,
-        
         VISITED    = 0x08,
         ON_STACK   = 0x10,
         SEED       = 0x20,   
