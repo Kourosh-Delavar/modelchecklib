@@ -90,4 +90,6 @@ namespace modelchecklib {
             return !(*this == t);
         }
     };
+
+    // TODO: add more transitions
 }
