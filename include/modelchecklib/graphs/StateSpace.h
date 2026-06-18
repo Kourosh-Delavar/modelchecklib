@@ -20,15 +20,15 @@ namespace modelchecklib {
             using State = StateNode<Model>;
 
         protected:
-            std::vector<State> states_; // TODO: comment 
+            std::vector<State> states_; // state ID is also the index of the state object in the vector
             std::vector<std::vector<TransType>> outgoingTransitions_;
-            std::vector<std::vector<TransType>> incomingTransitions_; // maybe be excluded
+            std::vector<std::vector<TransType>> incomingTransitions_; // TODO: remove this as it might be redundant
 
         public:
             StateSpace() = default;
             virtual ~StateSpace() = default;
         
-        // how to estimate the capacity needed? 
+        // optional to use
         void reserve(std::size_t capacity) {
             states_.reserve(capacity);
             outgoingTransitions_.reserve(capacity);
