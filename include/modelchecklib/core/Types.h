@@ -67,7 +67,7 @@ namespace modelchecklib {
  
             void add(APId id) { mask.set(id); }
             void remove(APId id) { mask.reset(id); }
-            void clear() noexcept {mask.reset(); }
+            void clear() noexcept { mask.reset(); }
 
             [[nodiscard]] bool contains(APId id) const { return mask.test(id); }
             [[nodiscard]] std::size_t count() const { return mask.count(); }
