@@ -4,10 +4,11 @@
 
 namespace modelchecklib::algorithms {
 
-    template<typename Graph, typename Visitor>
+    template<typename Graph, typename Visitor, typename EdgeSelector>
     void breadthFirstSearch(const Graph& graph,
                           const std::vector<typename Graph::StateId>& initial_states,
-                          Visitor visitor) // visitor is a custom function to perform desired logics during traversal
+                          Visitor visitor, // visitor is a custom function to perform desired logics during traversal
+                          EdgeSelector get_edges) // to determine which edges to search (incoming or outgoing)
     {
         using StateId = typename Graph::StateId;
 
@@ -30,7 +31,7 @@ namespace modelchecklib::algorithms {
 
             if (!visitor(current, predecessor)) return;  // if visitor function returned false, stop (a violation found)
 
-            for (const auto& trans : graph.getOutgoingTransitions(current)) {
+            for (const auto& trans : get_edges(graph, current)) {
                 if (!visited[trans.to]) {
                     visited[trans.to] = true;
                     queue.push_back({trans.to, current}); // push unvisited successors to the back of the queue
