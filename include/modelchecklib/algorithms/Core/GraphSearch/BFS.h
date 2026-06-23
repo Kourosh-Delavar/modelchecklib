@@ -15,9 +15,7 @@ namespace modelchecklib::algorithms {
         if (initial_states.empty() || graph.stateCount() == 0) return;
 
         std::vector<bool> visited(graph.stateCount(), false);
-
         std::vector<std::pair<StateId, StateId>> queue;
-
         std::size_t head = 0; // the front of the queue
 
         for (StateId init_id : initial_states) {
@@ -31,12 +29,12 @@ namespace modelchecklib::algorithms {
 
             if (!visitor(current, predecessor)) return;  // if visitor function returned false, stop (a violation found)
 
-            for (const auto& trans : get_edges(graph, current)) {
-                if (!visited[trans.to]) {
-                    visited[trans.to] = true;
-                    queue.push_back({trans.to, current}); // push unvisited successors to the back of the queue
+            get_edges(graph, current, [&](StateId next_state) {
+                if (!visited[next_state]) {
+                    visited[next_state] = true;
+                    queue.push_back({next_state, current});
                 }
-            }
+            });
         }    
     }
 }
