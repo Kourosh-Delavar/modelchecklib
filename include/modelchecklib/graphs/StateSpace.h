@@ -37,7 +37,7 @@ namespace modelchecklib {
 
         virtual void addState(const State& state) {
             if (state.id != states_.size()) {
-                throw new std::invalid_argument("StateSpace: StateId must be added sequentially");
+                throw std::invalid_argument("StateSpace: StateId must be added sequentially");
             }
 
             states_.push_back(state);
