@@ -35,7 +35,7 @@ namespace modelchecklib {
             incomingTransitions_.reserve(capacity);
         }
 
-        virtual void addstate(const State& state) {
+        virtual void addState(const State& state) {
             if (state.id != states_.size()) {
                 throw new std::invalid_argument("StateSpace: StateId must be added sequentially");
             }
